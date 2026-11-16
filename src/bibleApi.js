@@ -1,4 +1,3 @@
-const API_BASE = "https://api.midvash.com/v1";
 
 export const BIBLE_VERSIONS = {
   English: "web",
@@ -6,59 +5,77 @@ export const BIBLE_VERSIONS = {
   Odia: "irv-or",
 };
 
-async function request(endpoint) {
-  const response = await fetch(`${API_BASE}${endpoint}`);
+// Cache loaded book files in memory.
+const loadedBooks = new Map();
 
-  if (!response.ok) {
-    throw new Error(`Bible API error: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-export async function getBooks(testament = "old") {
-  const result = await request(
-    `/books?testament=${testament}`
-  );
-
-  return result.data;
-}
-
-export async function getChapter(book, chapter, language) {
+async function loadLocalBook(book, language) {
   const version = BIBLE_VERSIONS[language];
 
   if (!version) {
     throw new Error("Unsupported Bible language");
   }
 
-  const cacheKey = `bibleChapter:${version}:${book}:${chapter}`;
+  const key = `${version}:${book}`;
 
-  // Check for a previously saved chapter
-  const savedChapter = localStorage.getItem(cacheKey);
+  if (!loadedBooks.has(key)) {
+    const promise = fetch(`/bible-data/${version}/${book}.json`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Could not load ${book}: ${response.status}`);
+        }
 
-  // Use saved chapter immediately when offline
-  if (!navigator.onLine && savedChapter) {
-    return JSON.parse(savedChapter);
+        return response.json();
+      });
+
+    loadedBooks.set(key, promise);
   }
 
-  try {
-    const result = await request(
-      `/${version}/${book}/${chapter}`
-    );
+  return loadedBooks.get(key);
+}
 
-    // Save chapter for future offline reading
-    localStorage.setItem(
-      cacheKey,
-      JSON.stringify(result.data)
-    );
+// Load the complete 66-book catalogue locally.
+export async function getBooks(testament = "old") {
+  const response = await fetch("/bible-data/books.json");
 
-    return result.data;
-  } catch (error) {
-    // Fall back to saved chapter if the network fails
-    if (savedChapter) {
-      return JSON.parse(savedChapter);
-    }
-
-    throw error;
+  if (!response.ok) {
+    throw new Error("Could not load the offline Bible book catalogue");
   }
+
+  const books = await response.json();
+
+  return books.filter(
+    (book) => book.testament === testament.toLowerCase()
+  );
+}
+
+// Read a chapter directly from the local Bible files.
+export async function getChapter(book, chapter, language) {
+  const data = await loadLocalBook(book, language);
+  const savedChapter = data.chapters[String(chapter)];
+
+  if (!savedChapter) {
+    throw new Error(`Chapter ${chapter} not found in ${book}`);
+  }
+
+  return savedChapter;
+}
+
+// Compatibility with the existing download button.
+// The complete book is already included in the installed app.
+export async function downloadBook(book, language, onProgress) {
+  const data = await loadLocalBook(book.slug.en, language);
+  const total = book.chapters;
+
+  if (onProgress) {
+    onProgress({
+      completed: total,
+      total,
+      book: book.name.en,
+    });
+  }
+
+  return {
+    completed: Object.keys(data.chapters).length,
+    total,
+  };
 }

@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -7,11 +8,25 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+
+      workbox: {
+        globPatterns: [
+          '**/*.{js,css,html,ico,png,svg,woff2,json}'
+        ],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024
+      },
+
+      devOptions: {
+        enabled: true,
+        type: 'module'
+      },
+
       includeAssets: ['favicon.svg'],
+
       manifest: {
         name: 'Holy Bible',
         short_name: 'Holy Bible',
-        description: 'Read the Holy Bible in English, Hindi and Odia.',
+        description: 'Read the Holy Bible in English, Hindi and Odia completely offline.',
         theme_color: '#173f35',
         background_color: '#f8f6ef',
         display: 'standalone',

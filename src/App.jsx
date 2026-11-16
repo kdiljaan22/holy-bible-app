@@ -1,7 +1,11 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import "./App.css";
-import { getBooks, getChapter } from "./bibleApi";
+import {
+  getBooks,
+  getChapter,
+  downloadBook,
+} from "./bibleApi";
 
 const languages = {
   English: {
@@ -55,6 +59,24 @@ export default function App() {
   const [selectedBook, setSelectedBook] = useState("");
   const [chapterNumber, setChapterNumber] = useState(1);
   const [chapterData, setChapterData] = useState(null);
+  const [chapterTranslations, setChapterTranslations] = useState({
+  English: null,
+  Odia: null,
+  Hindi: null,
+});
+
+  const [selectedVerse, setSelectedVerse] = useState(1);
+  const verseRefs = useRef({});
+  useEffect(() => {
+  const selectedElement = verseRefs.current[selectedVerse];
+
+  if (selectedElement) {
+    selectedElement.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }
+}, [selectedVerse, chapterTranslations]);
   const [dailyVerse, setDailyVerse] = useState("");
   const [loadingBooks, setLoadingBooks] = useState(false);
   const [loadingChapter, setLoadingChapter] = useState(false);
@@ -62,12 +84,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("Home");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechUtterance, setSpeechUtterance] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(null);
   const [prayers, setPrayers] = useState(() => {
   return JSON.parse(localStorage.getItem("biblePrayers") || "[]");
 });
 
-const [prayerText, setPrayerText] = useState("");
+  const [prayerText, setPrayerText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [referenceInput, setReferenceInput] = useState("");
+  const [pendingReference, setPendingReference] = useState(null);
+  const [referenceError, setReferenceError] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [completedDays, setCompletedDays] = useState(() => {
@@ -117,36 +143,79 @@ const [prayerText, setPrayerText] = useState("");
 
   // Load the selected chapter in the chosen language.
   useEffect(() => {
-    if (activeTab !== "Bible" || !selectedBook) return;
+  if (activeTab !== "Bible" || !selectedBook) return;
 
-    let cancelled = false;
+  let cancelled = false;
 
-    async function loadChapter() {
-      setLoadingChapter(true);
-      setReaderError("");
-      setChapterData(null);
+  async function loadChapter() {
+    setLoadingChapter(true);
+    setReaderError("");
+    setChapterData(null);
 
-      try {
-        const result = await getChapter(
-          selectedBook,
-          chapterNumber,
-          language
+    setChapterTranslations({
+      English: null,
+      Odia: null,
+      Hindi: null,
+    });
+
+    try {
+      const [english, odia, hindi] = await Promise.all([
+        getChapter(selectedBook, chapterNumber, "English"),
+        getChapter(selectedBook, chapterNumber, "Odia"),
+        getChapter(selectedBook, chapterNumber, "Hindi"),
+      ]);
+
+      if (!cancelled) {
+        setChapterTranslations({
+          English: english,
+          Odia: odia,
+          Hindi: hindi,
+        });
+
+        setChapterData(
+          language === "English"
+            ? english
+            : language === "Odia"
+            ? odia
+            : hindi
         );
 
-        if (!cancelled) setChapterData(result);
-      } catch (error) {
-        if (!cancelled) setReaderError(error.message);
-      } finally {
-        if (!cancelled) setLoadingChapter(false);
+        if (
+  pendingReference &&
+  pendingReference.book === selectedBook &&
+  pendingReference.chapter === chapterNumber
+) {
+  if (pendingReference.verse <= english.verses.length) {
+    setSelectedVerse(pendingReference.verse);
+  } else {
+    setSelectedVerse(1);
+    setReferenceError(
+      `This chapter has only ${english.verses.length} verses.`
+    );
+  }
+
+  setPendingReference(null);
+} else {
+  setSelectedVerse(1);
+}
+      }
+    } catch (error) {
+      if (!cancelled) {
+        setReaderError(error.message);
+      }
+    } finally {
+      if (!cancelled) {
+        setLoadingChapter(false);
       }
     }
+  }
 
-    loadChapter();
+  loadChapter();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, selectedBook, chapterNumber, language]);
+  return () => {
+    cancelled = true;
+  };
+}, [activeTab, selectedBook, chapterNumber, language]);
 
   // Load the real John 3:16 verse in the selected language.
   useEffect(() => {
@@ -181,6 +250,72 @@ const [prayerText, setPrayerText] = useState("");
     setSelectedBook("");
     setChapterData(null);
   }
+  async function goToReference() {
+  setReferenceError("");
+
+  const match = referenceInput.trim().match(/^(.+?)\s+(\d+):(\d+)$/);
+
+  if (!match) {
+    setReferenceError("Enter a reference like John 3:16");
+    return;
+  }
+
+  const [, bookName, chapterText, verseText] = match;
+
+  const chapter = Number(chapterText);
+  const verse = Number(verseText);
+
+  try {
+    const [oldBooks, newBooks] = await Promise.all([
+      getBooks("old"),
+      getBooks("new"),
+    ]);
+
+    const allBooks = [...oldBooks, ...newBooks];
+
+    const normalizedName = bookName
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const book = allBooks.find(
+      (item) =>
+        item.name.en.toLowerCase().replace(/\s+/g, " ").trim() ===
+        normalizedName
+    ) || (
+      normalizedName === "psalm"
+        ? allBooks.find((item) => item.slug.en === "psalms")
+        : null
+    );
+
+    if (!book) {
+      setReferenceError("Bible book not found. Check the book name.");
+      return;
+    }
+
+    if (
+      chapter < 1 ||
+      chapter > book.chapters ||
+      verse < 1
+    ) {
+      setReferenceError("Invalid chapter or verse number.");
+      return;
+    }
+
+    setPendingReference({
+      book: book.slug.en,
+      chapter,
+      verse,
+    });
+
+    setTestament(book.testament === "old" ? "Old" : "New");
+    setSelectedBook(book.slug.en);
+    setChapterNumber(chapter);
+    setActiveTab("Bible");
+  } catch (error) {
+    setReferenceError("Could not find the Bible reference.");
+  }
+}
 async function shareVerse(verse, index) {
   const reference = `${currentBook?.name.en || selectedBook} ${chapterNumber}:${index + 1}`;
   const message = `${verse}\n\n— ${reference} (${language})`;
@@ -333,124 +468,130 @@ function toggleReadingDay(day) {
       </header>
 
       <main>
-        <section className="welcome">
-          <div className="welcome-text">
-            <span className="eyebrow">✦ YOUR DAILY FAITH JOURNEY</span>
-            <h1>{t.greeting}</h1>
-            <p>{t.subtitle}</p>
-            <button onClick={() => openBook("genesis")}>
-              {t.read} →
-            </button>
-          </div>
-          <div className="welcome-cross">✝</div>
-        </section>
-
-        <section className="daily">
-          <span className="eyebrow">{t.daily}</span>
-          <div className="gold-line"></div>
-          <div className="quote">
-            “{dailyVerse || t.note}”
-          </div>
-          <p className="reference">
-            {language === "Hindi"
-              ? "यूहन्ना 3:16"
-              : language === "Odia"
-              ? "ଯୋହନ ୩:୧୬"
-              : "John 3:16"}
-          </p>
-          <div className="daily-bottom">
-            <span>✧ &nbsp; WORD OF GOD</span>
-            <span>✝</span>
-          </div>
-        </section>
-
-        <section className="section">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">DISCOVER SCRIPTURE</span>
-              <h2>{t.books}</h2>
-            </div>
-          </div>
-
-          <div className="testament">
-            <button
-              className={testament === "Old" ? "active" : ""}
-              onClick={() => changeTestament("Old")}
-            >
-              {t.old}
-            </button>
-
-            <button
-              className={testament === "New" ? "active" : ""}
-              onClick={() => changeTestament("New")}
-            >
-              {t.new}
-            </button>
-          </div>
-
-          {loadingBooks ? (
-            <p>Loading Bible books...</p>
-          ) : (
-            <div className="book-grid">
-              {books.map((book, index) => (
-                <button
-                  className={`book ${
-                    selectedBook === book.slug.en ? "selected" : ""
-                  }`}
-                  key={book.id}
-                  onClick={() => openBook(book.slug.en)}
-                >
-                  <span className="book-number">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  {book.name.en}
-                  <span className="book-arrow">→</span>
+        {activeTab === "Home" && (
+          <>
+            <section className="welcome">
+              <div className="welcome-text">
+                <span className="eyebrow">✦ YOUR DAILY FAITH JOURNEY</span>
+                <h1>{t.greeting}</h1>
+                <p>{t.subtitle}</p>
+                <button onClick={() => openBook("genesis")}>
+                  {t.read} →
                 </button>
-              ))}
-            </div>
-          )}
+              </div>
+              <div className="welcome-cross">✝</div>
+            </section>
 
-          {currentBook && (
-            <div className="selection">
-              <span>SELECTED BOOK</span>
-              <h3>{currentBook.name.en}</h3>
-              <p>{currentBook.chapters} chapters</p>
-              <button onClick={() => openBook(currentBook.slug.en)}>
-                Open Book →
-              </button>
-            </div>
-          )}
-        </section>
+            <section className="daily">
+              <span className="eyebrow">{t.daily}</span>
+              <div className="gold-line"></div>
+              <div className="quote">
+                “{dailyVerse || t.note}”
+              </div>
+              <p className="reference">
+                {language === "Hindi"
+                  ? "यूहन्ना 3:16"
+                  : language === "Odia"
+                  ? "ଯୋହନ ୩:୧୬"
+                  : "John 3:16"}
+              </p>
+              <div className="daily-bottom">
+                <span>✧ &nbsp; WORD OF GOD</span>
+                <span>✝</span>
+              </div>
+            </section>
 
-        <section className="section">
-          <span className="eyebrow">YOUR SPIRITUAL GROWTH</span>
-          <h2>{t.continue}</h2>
+            <section className="section">
+              <span className="eyebrow">YOUR SPIRITUAL GROWTH</span>
+              <h2>{t.continue}</h2>
 
-          <div className="feature-grid">
-            <button onClick={() => setActiveTab("Bookmarks")}>
-              <span>♡</span>
-              <strong>{t.bookmark}</strong>
-              <small>Save favourite verses</small>
-            </button>
+              <div className="feature-grid">
+                <button onClick={() => setActiveTab("Bookmarks")}>
+                  <span>♡</span>
+                  <strong>{t.bookmark}</strong>
+                  <small>Save favourite verses</small>
+                </button>
 
-            <button onClick={() => setActiveTab("Plans")}>
-              <span>◷</span>
-              <strong>{t.plans}</strong>
-              <small>Build a daily habit</small>
-            </button>
+                <button onClick={() => setActiveTab("Plans")}>
+                  <span>◷</span>
+                  <strong>{t.plans}</strong>
+                  <small>Build a daily habit</small>
+                </button>
 
-            <button onClick={() => setActiveTab("Prayer")}>
-              <span>✧</span>
-              <strong>{t.prayer}</strong>
-              <small>Spend time with God</small>
-            </button>
-          </div>
-        </section>
-      </main>
+                <button onClick={() => setActiveTab("Prayer")}>
+                  <span>✧</span>
+                  <strong>{t.prayer}</strong>
+                  <small>Spend time with God</small>
+                </button>
+              </div>
+            </section>
+          </>
+        )}
 
-      {activeTab === "Bible" && (
+        {activeTab === "Bible" && (
         <section className="section reader">
+          <div className="reader-top">
+  <span className="eyebrow">YOUR BIBLE READER</span>
+  <h2>Explore the Holy Bible</h2>
+  <p>Select a testament, book, chapter and verse to begin reading.</p>
+</div>
           <span className="eyebrow">HOLY SCRIPTURE</span>
+          <div className="reference-search">
+  <label htmlFor="reference-input">Go to Bible Reference</label>
+
+  <div className="reference-search-controls">
+    <input
+      id="reference-input"
+      type="text"
+      value={referenceInput}
+      onChange={(e) => setReferenceInput(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") goToReference();
+      }}
+      placeholder="Example: John 3:16"
+    />
+
+    <button type="button" onClick={goToReference}>
+      Go to Verse
+    </button>
+  </div>
+
+  {referenceError && (
+    <p className="reference-error">{referenceError}</p>
+  )}
+</div>
+          <div className="reader-selectors">
+  <label htmlFor="testament-select">Select Testament</label>
+  <select
+    id="testament-select"
+    value={testament}
+    onChange={(e) => changeTestament(e.target.value)}
+  >
+    <option value="Old">Old Testament</option>
+    <option value="New">New Testament</option>
+  </select>
+
+  <label htmlFor="book-select">Select Book</label>
+  <select
+    id="book-select"
+    value={selectedBook}
+    onChange={(e) => openBook(e.target.value)}
+  >
+    <option value="">Choose a Bible book</option>
+    {books.map((book) => (
+      <option key={book.id} value={book.slug.en}>
+        {book.name.en}
+      </option>
+    ))}
+  </select>
+</div>
+
+{currentBook && (
+  <div className="offline-download">
+    
+  </div>
+)}
+
           <h2>
             {currentBook ? currentBook.name.en : "Bible Reader"}
           </h2>
@@ -476,7 +617,52 @@ function toggleReadingDay(day) {
                   </option>
                 ))}
               </select>
+              <label htmlFor="verse-select">Select verse</label>
+<select
+  id="verse-select"
+  value={selectedVerse}
+  onChange={(e) => setSelectedVerse(Number(e.target.value))}
+  disabled={!chapterTranslations.English?.verses?.length}
+>
+  {Array.from(
+    { length: chapterTranslations.English?.verses?.length || 0 },
+    (_, index) => index + 1
+  ).map((number) => (
+    <option key={number} value={number}>
+      Verse {number}
+    </option>
+  ))}
+</select>
+<div className="verse-navigation">
+  <button
+    type="button"
+    onClick={() => setSelectedVerse((previous) => previous - 1)}
+    disabled={selectedVerse <= 1}
+  >
+    ← Previous Verse
+  </button>
 
+  <span>
+    {selectedVerse} / {chapterTranslations.English?.verses?.length || 0}
+  </span>
+
+  <button
+    type="button"
+    onClick={() =>
+      setSelectedVerse((previous) =>
+        Math.min(
+          previous + 1,
+          chapterTranslations.English?.verses?.length || 1
+        )
+      )
+    }
+    disabled={
+      selectedVerse >= (chapterTranslations.English?.verses?.length || 0)
+    }
+  >
+    Next Verse →
+  </button>
+</div>
               <h3>
                 {currentBook.name.en} {chapterNumber}
               </h3>
@@ -529,32 +715,76 @@ function toggleReadingDay(day) {
                 <p className="reader-error">{readerError}</p>
               )}
 
-              {chapterData && (
-                <div className="verse-list">
-  {chapterData.verses.map((verse, index) => {
-    const key = `${selectedBook}-${chapterNumber}-${index + 1}-${language}`;
-    const saved = bookmarks.some((item) => item.key === key);
+              
+{chapterTranslations.English &&
+ chapterTranslations.Odia &&
+ chapterTranslations.Hindi && (
+  <div className="all-translations">
+    {chapterTranslations.English.verses.map((englishVerse, index) => {
+      const verseNumber = index + 1;
+      const odiaVerse = chapterTranslations.Odia.verses[index];
+      const hindiVerse = chapterTranslations.Hindi.verses[index];
 
-    return (
-      <div className="verse-row" key={index}>
-        <p className="verse">
-          <strong>{index + 1}</strong> {verse}
-        </p>
+      const currentVerse = chapterData?.verses?.[index] || englishVerse;
+      const key = `${selectedBook}-${chapterNumber}-${verseNumber}-${language}`;
+      const saved = bookmarks.some((item) => item.key === key);
 
-        <button onClick={() => toggleBookmark(index, verse)}>
-          {saved ? "♥ Saved" : "♡ Save"}
-        </button>
-        <button
-  type="button"
-  onClick={() => shareVerse(verse, index)}
+      return (
+        <div
+  ref={(element) => {
+    verseRefs.current[verseNumber] = element;
+  }}
+  className={`translation-section ${
+    selectedVerse === verseNumber ? "selected-verse" : ""
+  }`}
+  key={verseNumber}
+  onClick={() => setSelectedVerse(verseNumber)}
 >
-  ↗ Share
-</button>
-      </div>
-    );
-  })}
-</div>
-              )}
+          <h3>
+            {currentBook?.name.en || selectedBook} {chapterNumber}:{verseNumber}
+          </h3>
+
+          <p className="verse">
+            <strong>English:</strong> {englishVerse}
+          </p>
+
+          <p className="verse odia-verse">
+            <strong>ଓଡ଼ିଆ:</strong>{" "}
+            {odiaVerse || "Translation unavailable"}
+          </p>
+
+          <p className="verse hindi-verse">
+            <strong>हिन्दी:</strong>{" "}
+            {hindiVerse || "Translation unavailable"}
+          </p>
+
+          <div className="verse-actions">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleBookmark(index, currentVerse);
+              }}
+            >
+              {saved ? "♥ Saved" : "♡ Save"}
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                shareVerse(currentVerse, index);
+              }}
+            >
+              ↗ Share
+            </button>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
+
               {searchResults.length > 0 && (
   <div className="section">
     <h3>Search Results ({searchResults.length})</h3>
@@ -724,23 +954,115 @@ function toggleReadingDay(day) {
     )}
   </section>
 )}     
-      
-      <nav className="bottom-nav">
-        {["Home", "Bible", "Bookmarks", "Plans"].map((tab) => (
-          <button
-            key={tab}
-            className={activeTab === tab ? "nav-active" : ""}
-            onClick={() => setActiveTab(tab)}
-          >
-            <span>
-              {tab === "Home" ? "⌂" :
-               tab === "Bible" ? "▤" :
-               tab === "Bookmarks" ? "♡" : "◷"}
-            </span>
-            {tab}
-          </button>
-        ))}
-      </nav>
+{activeTab === "About" && (
+  <section className="section about-section">
+    <div className="about-header">
+      <span className="about-icon">✝</span>
+      <h2>About Holy Bible</h2>
+      <p>FAITH • HOPE • LOVE</p>
+    </div>
+
+    <div className="about-card">
+      <h3>About the App</h3>
+      <p>
+        Holy Bible is a multilingual Bible reading application
+        designed to help people read and understand God's Word
+        in English, Hindi and Odia.
+      </p>
+    </div>
+
+    <div className="about-card">
+      <h3>Our Mission</h3>
+      <p>
+        Our mission is to make Scripture accessible to everyone
+        and encourage daily Bible reading, prayer and reflection.
+      </p>
+    </div>
+
+    <div className="about-card">
+      <h3>Bible Sources & Credits</h3>
+      <p>
+        English: World English Bible (WEB), public domain.
+      </p>
+      <p>
+        Hindi and Odia: Indian Revised Version (IRV),
+        © Bridge Connectivity Solutions, licensed under
+        Creative Commons Attribution-ShareAlike 4.0.
+      </p>
+    </div>
+
+    <div className="about-card">
+  <h3>Contact Us</h3>
+  <p><strong>Name:</strong> K DEELU</p>
+  <p>
+    <strong>Email:</strong>{" "}
+    <a href="mailto:kdiljaan1994@gmail.com">
+      kdiljaan1994@gmail.com
+    </a>
+  </p>
+  <p>
+    <strong>Contact:</strong>{" "}
+    <a href="tel:+917735370822">
+      +91 7735370822
+    </a>
+  </p>
+  <p><strong>Place:</strong> JALTAR,GUNUPUR,ODISHA</p>
+</div>
+  </section>
+)}
+      </main>
+
+<nav className="bottom-nav">
+  {["Home", "Bible", "Bookmarks", "Plans", "About"].map((tab) => (
+    <button
+      key={tab}
+      className={activeTab === tab ? "nav-active" : ""}
+      onClick={() => setActiveTab(tab)}
+    >
+      <span>
+        {tab === "Home" ? "⌂" :
+         tab === "Bible" ? "▤" :
+         tab === "Bookmarks" ? "♡" :
+         tab === "Plans" ? "◷" : "ⓘ"}
+      </span>
+      {tab}
+    </button>
+  ))}
+</nav>
+<footer className="app-footer">
+  <div className="footer-brand">
+    <span className="footer-cross">✝</span>
+    <h3>Holy Bible</h3>
+    <p>FAITH • HOPE • LOVE</p>
+  </div>
+
+  <p className="footer-message">
+    Made with <span>♥</span> to spread God's Word
+  </p>
+
+  <div className="footer-credits">
+    <p><strong>Bible Translation Credits</strong></p>
+    <p>English: World English Bible (WEB) — Public Domain.</p>
+    <p>
+      Hindi & Odia: Indian Revised Version (IRV) —
+      © Bridge Connectivity Solutions.
+    </p>
+    <p>
+      Licensed under{" "}
+      <a
+        href="https://creativecommons.org/licenses/by-sa/4.0/"
+        target="_blank"
+        rel="noreferrer"
+      >
+        CC BY-SA 4.0
+      </a>.
+    </p>
+  </div>
+
+  <p className="footer-copyright">
+    © 2026 Holy Bible. All rights reserved.
+  </p>
+</footer>
     </div>
   );
 }
