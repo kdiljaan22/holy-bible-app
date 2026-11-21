@@ -154,9 +154,13 @@ export default function App() {
   Hindi: null,
 });
 
-  const [selectedVerse, setSelectedVerse] = useState(1);
-  const verseRefs = useRef({});
-  useEffect(() => {
+ const [selectedVerse, setSelectedVerse] = useState(1);
+const verseRefs = useRef({});
+const shouldScrollToVerse = useRef(false);
+
+useEffect(() => {
+  if (!shouldScrollToVerse.current) return;
+
   const selectedElement = verseRefs.current[selectedVerse];
 
   if (selectedElement) {
@@ -164,6 +168,8 @@ export default function App() {
       behavior: "smooth",
       block: "center",
     });
+
+    shouldScrollToVerse.current = false;
   }
 }, [selectedVerse, chapterTranslations]);
   const [dailyVerse, setDailyVerse] = useState("");
@@ -649,16 +655,70 @@ function toggleReadingDay(day) {
     <p className="reference-error">{referenceError}</p>
   )}
 </div>
-          <div className="reader-selectors">
-  <label htmlFor="testament-select">Select Testament</label>
-  <select
-    id="testament-select"
-    value={testament}
-    onChange={(e) => changeTestament(e.target.value)}
+          <div className="testament">
+  <button
+    type="button"
+    className={testament === "Old" ? "active" : ""}
+    onClick={() => changeTestament("Old")}
   >
-    <option value="Old">Old Testament</option>
-    <option value="New">New Testament</option>
-  </select>
+    Old Testament
+  </button>
+
+  <button
+    type="button"
+    className={testament === "New" ? "active" : ""}
+    onClick={() => changeTestament("New")}
+  >
+    New Testament
+  </button>
+</div>
+
+<div className="bible-selectors">
+  <div className="selector-group">
+    <label htmlFor="book-select">Select Book</label>
+    <select
+      id="book-select"
+      value={selectedBook}
+      onChange={(e) => openBook(e.target.value)}
+    >
+      <option value="">Choose a Bible book</option>
+      {books.map((book) => (
+        <option key={book.id} value={book.slug.en}>
+          {getBookDisplayName(book, language)}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {currentBook && (
+    <>
+      
+
+      <div className="selector-group">
+        <label htmlFor="verse-select">Select Verse</label>
+        <select
+          id="verse-select"
+          value={selectedVerse}
+          onChange={(e) => {
+            shouldScrollToVerse.current = true;
+            setSelectedVerse(Number(e.target.value));
+          }}
+          disabled={!chapterTranslations.English?.verses?.length}
+        >
+          {Array.from(
+            { length: chapterTranslations.English?.verses?.length || 0 },
+            (_, index) => index + 1
+          ).map((number) => (
+            <option key={number} value={number}>
+              Verse {number}
+            </option>
+          ))}
+        </select>
+      </div>
+    </>
+  )}
+</div>
+</div>
 
   <label htmlFor="book-select">Select Book</label>
   <select
@@ -691,41 +751,32 @@ function toggleReadingDay(day) {
 
           {currentBook && (
             <>
-              <label htmlFor="chapter-select">Select chapter</label>
-              <select
-                id="chapter-select"
-                value={chapterNumber}
-                onChange={(e) => setChapterNumber(Number(e.target.value))}
-              >
-                {Array.from(
-                  { length: currentBook.chapters },
-                  (_, index) => index + 1
-                ).map((number) => (
-                  <option key={number} value={number}>
-                    Chapter {number}
-                  </option>
-                ))}
-              </select>
-              <label htmlFor="verse-select">Select verse</label>
-<select
-  id="verse-select"
-  value={selectedVerse}
-  onChange={(e) => setSelectedVerse(Number(e.target.value))}
-  disabled={!chapterTranslations.English?.verses?.length}
->
-  {Array.from(
-    { length: chapterTranslations.English?.verses?.length || 0 },
-    (_, index) => index + 1
-  ).map((number) => (
-    <option key={number} value={number}>
-      Verse {number}
-    </option>
-  ))}
-</select>
+              <div className="selector-group">
+  <label htmlFor="chapter-select">Select Chapter</label>
+  <select
+    id="chapter-select"
+    value={chapterNumber}
+    onChange={(e) => setChapterNumber(Number(e.target.value))}
+  >
+    {Array.from(
+      { length: currentBook.chapters },
+      (_, index) => index + 1
+    ).map((number) => (
+      <option key={number} value={number}>
+        Chapter {number}
+      </option>
+    ))}
+  </select>
+</div>
+
+
 <div className="verse-navigation">
   <button
     type="button"
-    onClick={() => setSelectedVerse((previous) => previous - 1)}
+    onClick={() => {
+  shouldScrollToVerse.current = true;
+  setSelectedVerse((previous) => previous - 1);
+}}
     disabled={selectedVerse <= 1}
   >
     ← Previous Verse
@@ -827,7 +878,10 @@ function toggleReadingDay(day) {
     selectedVerse === verseNumber ? "selected-verse" : ""
   }`}
   key={verseNumber}
-  onClick={() => setSelectedVerse(verseNumber)}
+  onClick={() => {
+  shouldScrollToVerse.current = true;
+  setSelectedVerse(verseNumber);
+}}
 >
           <h3>
             {getBookDisplayName(currentBook, language) || selectedBook} {chapterNumber}:{verseNumber}
@@ -894,18 +948,22 @@ function toggleReadingDay(day) {
 
               <div className="chapter-navigation">
                 <button
-                  disabled={chapterNumber <= 1}
-                  onClick={() => setChapterNumber((n) => n - 1)}
-                >
-                  ← Previous
-                </button>
-
-                <button
-                  disabled={chapterNumber >= currentBook.chapters}
-                  onClick={() => setChapterNumber((n) => n + 1)}
-                >
-                  Next →
-                </button>
+  type="button"
+  onClick={() => {
+    shouldScrollToVerse.current = true;
+    setSelectedVerse((previous) =>
+      Math.min(
+        previous + 1,
+        chapterTranslations.English?.verses?.length || 1
+      )
+    );
+  }}
+  disabled={
+    selectedVerse >= (chapterTranslations.English?.verses?.length || 0)
+  }
+>
+  Next Verse →
+</button>
               </div>
             </>
           )}

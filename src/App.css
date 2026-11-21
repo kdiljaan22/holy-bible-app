@@ -832,3 +832,41 @@ button, select {
     font-size: 21px;
   }
 }
+/* Bible reader selector layout */
+.bible-selectors {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.selector-group {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selector-group label {
+  color: #173f35;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.selector-group select {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 6px;
+  font-size: 12px;
+}
+
+@media (max-width: 380px) {
+  .bible-selectors {
+    gap: 6px;
+  }
+
+  .selector-group select {
+    font-size: 11px;
+    padding: 10px 3px;
+  }
+}
