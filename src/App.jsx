@@ -692,7 +692,23 @@ function toggleReadingDay(day) {
 
   {currentBook && (
     <>
-      
+     <div className="selector-group">
+  <label htmlFor="chapter-select">Select Chapter</label>
+  <select
+    id="chapter-select"
+    value={chapterNumber}
+    onChange={(e) => setChapterNumber(Number(e.target.value))}
+  >
+    {Array.from(
+      { length: currentBook.chapters },
+      (_, index) => index + 1
+    ).map((number) => (
+      <option key={number} value={number}>
+        Chapter {number}
+      </option>
+    ))}
+  </select>
+</div> 
 
       <div className="selector-group">
         <label htmlFor="verse-select">Select Verse</label>
@@ -718,22 +734,8 @@ function toggleReadingDay(day) {
     </>
   )}
 </div>
-</div>
 
-  <label htmlFor="book-select">Select Book</label>
-  <select
-    id="book-select"
-    value={selectedBook}
-    onChange={(e) => openBook(e.target.value)}
-  >
-    <option value="">Choose a Bible book</option>
-    {books.map((book) => (
-      <option key={book.id} value={book.slug.en}>
-        {getBookDisplayName(book, language)}
-      </option>
-    ))}
-  </select>
-</div>
+ 
 
 {currentBook && (
   <div className="offline-download">
@@ -751,23 +753,7 @@ function toggleReadingDay(day) {
 
           {currentBook && (
             <>
-              <div className="selector-group">
-  <label htmlFor="chapter-select">Select Chapter</label>
-  <select
-    id="chapter-select"
-    value={chapterNumber}
-    onChange={(e) => setChapterNumber(Number(e.target.value))}
-  >
-    {Array.from(
-      { length: currentBook.chapters },
-      (_, index) => index + 1
-    ).map((number) => (
-      <option key={number} value={number}>
-        Chapter {number}
-      </option>
-    ))}
-  </select>
-</div>
+              
 
 
 <div className="verse-navigation">
