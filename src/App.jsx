@@ -52,6 +52,95 @@ const languages = {
   },
 };
 
+
+// Localized display names for all 66 Bible books.
+const BOOK_NAMES = {
+  "genesis": { Hindi: "उत्पत्ति", Odia: "ଆଦିପୁସ୍ତକ" },
+  "exodus": { Hindi: "निर्गमन", Odia: "ଯାତ୍ରାପୁସ୍ତକ" },
+  "leviticus": { Hindi: "लैव्यव्यवस्था", Odia: "ଲେବୀୟ ପୁସ୍ତକ" },
+  "numbers": { Hindi: "गिनती", Odia: "ଗଣନା ପୁସ୍ତକ" },
+  "deuteronomy": { Hindi: "व्यवस्थाविवरण", Odia: "ଦ୍ୱିତୀୟ ବିବରଣ" },
+  "joshua": { Hindi: "यहोशू", Odia: "ଯିହୋଶୂୟ" },
+  "judges": { Hindi: "न्यायियों", Odia: "ବିଚାରକର୍ତ୍ତା" },
+  "ruth": { Hindi: "रूत", Odia: "ରୂତ" },
+  "1-samuel": { Hindi: "1 शमूएल", Odia: "1 ଶାମୁୟେଲ" },
+  "2-samuel": { Hindi: "2 शमूएल", Odia: "2 ଶାମୁୟେଲ" },
+  "1-kings": { Hindi: "1 राजा", Odia: "1 ରାଜାବଳୀ" },
+  "2-kings": { Hindi: "2 राजा", Odia: "2 ରାଜାବଳୀ" },
+  "1-chronicles": { Hindi: "1 इतिहास", Odia: "1 ବଂଶାବଳୀ" },
+  "2-chronicles": { Hindi: "2 इतिहास", Odia: "2 ବଂଶାବଳୀ" },
+  "ezra": { Hindi: "एज्रा", Odia: "ଏଜ୍ରା" },
+  "nehemiah": { Hindi: "नहेमायाह", Odia: "ନିହିମିୟା" },
+  "esther": { Hindi: "एस्तेर", Odia: "ଏଷ୍ଟର" },
+  "job": { Hindi: "अय्यूब", Odia: "ଆୟୁବ" },
+  "psalms": { Hindi: "भजन संहिता", Odia: "ଗୀତସଂହିତା" },
+  "proverbs": { Hindi: "नीतिवचन", Odia: "ହିତୋପଦେଶ" },
+  "ecclesiastes": { Hindi: "सभोपदेशक", Odia: "ଉପଦେଶକ" },
+  "song-of-solomon": { Hindi: "श्रेष्ठगीत", Odia: "ପରମଗୀତ" },
+  "isaiah": { Hindi: "यशायाह", Odia: "ଯିଶାଇୟ" },
+  "jeremiah": { Hindi: "यिर्मयाह", Odia: "ଯିରିମିୟ" },
+  "lamentations": { Hindi: "विलापगीत", Odia: "ବିଳାପ" },
+  "ezekiel": { Hindi: "यहेजकेल", Odia: "ଯିହିଜିକଲ" },
+  "daniel": { Hindi: "दानिय्येल", Odia: "ଦାନିୟେଲ" },
+  "hosea": { Hindi: "होशे", Odia: "ହୋଶେୟ" },
+  "joel": { Hindi: "योएल", Odia: "ଯୋୟେଲ" },
+  "amos": { Hindi: "आमोस", Odia: "ଆମୋଷ" },
+  "obadiah": { Hindi: "ओबद्याह", Odia: "ଓବଦିୟ" },
+  "jonah": { Hindi: "योना", Odia: "ଯୁନସ" },
+  "micah": { Hindi: "मीका", Odia: "ମୀଖା" },
+  "nahum": { Hindi: "नहूम", Odia: "ନାହୂମ" },
+  "habakkuk": { Hindi: "हबक्कूक", Odia: "ହବକ୍କୂକ" },
+  "zephaniah": { Hindi: "सपन्याह", Odia: "ସିଫନିୟ" },
+  "haggai": { Hindi: "हाग्गै", Odia: "ହାଗୟ" },
+  "zechariah": { Hindi: "जकर्याह", Odia: "ଜଖରିୟ" },
+  "malachi": { Hindi: "मलाकी", Odia: "ମଲାଖି" },
+  "matthew": { Hindi: "मत्ती", Odia: "ମାଥିଉ" },
+  "mark": { Hindi: "मरकुस", Odia: "ମାର୍କ" },
+  "luke": { Hindi: "लूका", Odia: "ଲୂକ" },
+  "john": { Hindi: "यूहन्ना", Odia: "ଯୋହନ" },
+  "acts": { Hindi: "प्रेरितों के काम", Odia: "ପ୍ରେରିତମାନଙ୍କ କାର୍ଯ୍ୟ" },
+  "romans": { Hindi: "रोमियों", Odia: "ରୋମୀୟ" },
+  "1-corinthians": { Hindi: "1 कुरिन्थियों", Odia: "1 କରିନ୍ଥୀୟ" },
+  "2-corinthians": { Hindi: "2 कुरिन्थियों", Odia: "2 କରିନ୍ଥୀୟ" },
+  "galatians": { Hindi: "गलातियों", Odia: "ଗାଲାତୀୟ" },
+  "ephesians": { Hindi: "इफिसियों", Odia: "ଏଫିସୀୟ" },
+  "philippians": { Hindi: "फिलिप्पियों", Odia: "ଫିଲିପ୍ପୀୟ" },
+  "colossians": { Hindi: "कुलुस्सियों", Odia: "କଲସୀୟ" },
+  "1-thessalonians": { Hindi: "1 थिस्सलुनीकियों", Odia: "1 ଥେସଲନୀକୀୟ" },
+  "2-thessalonians": { Hindi: "2 थिस्सलुनीकियों", Odia: "2 ଥେସଲନୀକୀୟ" },
+  "1-timothy": { Hindi: "1 तीमुथियुस", Odia: "1 ତୀମଥି" },
+  "2-timothy": { Hindi: "2 तीमुथियुस", Odia: "2 ତୀମଥି" },
+  "titus": { Hindi: "तीतुस", Odia: "ତୀତସ" },
+  "philemon": { Hindi: "फिलेमोन", Odia: "ଫିଲୀମୋନ" },
+  "hebrews": { Hindi: "इब्रानियों", Odia: "ଏବ୍ରୀ" },
+  "james": { Hindi: "याकूब", Odia: "ଯାକୁବ" },
+  "1-peter": { Hindi: "1 पतरस", Odia: "1 ପିତର" },
+  "2-peter": { Hindi: "2 पतरस", Odia: "2 ପିତର" },
+  "1-john": { Hindi: "1 यूहन्ना", Odia: "1 ଯୋହନ" },
+  "2-john": { Hindi: "2 यूहन्ना", Odia: "2 ଯୋହନ" },
+  "3-john": { Hindi: "3 यूहन्ना", Odia: "3 ଯୋହନ" },
+  "jude": { Hindi: "यहूदा", Odia: "ଯିହୂଦା" },
+  "revelation": { Hindi: "प्रकाशितवाक्य", Odia: "ପ୍ରକାଶିତ ବାକ୍ୟ" },
+};
+
+function getBookDisplayName(book, language) {
+  if (!book) return "";
+  if (language === "English") return book.name.en;
+
+  const normalize = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+  const key = normalize(book.slug?.en) || normalize(book.name?.en);
+  const localizedName =
+    BOOK_NAMES[key]?.[language] ||
+    BOOK_NAMES[normalize(book.name?.en)]?.[language];
+
+  return localizedName || book.name.en;
+}
+
 export default function App() {
   const [language, setLanguage] = useState("English");
   const [testament, setTestament] = useState("Old");
@@ -317,7 +406,7 @@ export default function App() {
   }
 }
 async function shareVerse(verse, index) {
-  const reference = `${currentBook?.name.en || selectedBook} ${chapterNumber}:${index + 1}`;
+  const reference = `${getBookDisplayName(currentBook, language) || selectedBook} ${chapterNumber}:${index + 1}`;
   const message = `${verse}\n\n— ${reference} (${language})`;
 
   if (navigator.share) {
@@ -374,7 +463,7 @@ function toggleBookmark(index, verse) {
     ? bookmarks.filter((item) => item.key !== key)
     : [...bookmarks, {
         key,
-        book: currentBook?.name.en || selectedBook,
+        book: getBookDisplayName(currentBook, language) || selectedBook,
         chapter: chapterNumber,
         verseNumber: index + 1,
         text: verse,
@@ -580,7 +669,7 @@ function toggleReadingDay(day) {
     <option value="">Choose a Bible book</option>
     {books.map((book) => (
       <option key={book.id} value={book.slug.en}>
-        {book.name.en}
+        {getBookDisplayName(book, language)}
       </option>
     ))}
   </select>
@@ -593,7 +682,7 @@ function toggleReadingDay(day) {
 )}
 
           <h2>
-            {currentBook ? currentBook.name.en : "Bible Reader"}
+            {currentBook ? getBookDisplayName(currentBook, language) : "Bible Reader"}
           </h2>
 
           {!selectedBook && (
@@ -664,7 +753,7 @@ function toggleReadingDay(day) {
   </button>
 </div>
               <h3>
-                {currentBook.name.en} {chapterNumber}
+                {getBookDisplayName(currentBook, language)} {chapterNumber}
               </h3>
               <div className="audio-controls">
   <button
@@ -741,7 +830,7 @@ function toggleReadingDay(day) {
   onClick={() => setSelectedVerse(verseNumber)}
 >
           <h3>
-            {currentBook?.name.en || selectedBook} {chapterNumber}:{verseNumber}
+            {getBookDisplayName(currentBook, language) || selectedBook} {chapterNumber}:{verseNumber}
           </h3>
 
           <p className="verse">
